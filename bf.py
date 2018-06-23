@@ -10,6 +10,10 @@ from __future__ import unicode_literals
 import sys
 
 
+VALID_CODE_CHARS = '<>,.+-[]'
+MEMORY_CELLS = 30000  # as defined by Urban Meuller, who made BrainFuck
+
+
 # In case you done goof
 class CompileException(Exception):
     """Comptile Exception
@@ -23,28 +27,25 @@ class RuntimeException(Exception):
     pass
 
 
-def run(code):
+def execute(code):
     """Interpret the code.
 
     Args:
         code: Code string to execute.
     """
     # strip all of the non executable characters
-    code = ''.join(c for c in code if c in '<>,.+-[]')
+    code = ''.join(char for char in code if char in VALID_CODE_CHARS)
 
-    # make sure while loops are correct
+    # Initialize loops
     brace_count = 0
-    loop_stack = [] # queue for while loop jump 'pointers'
-    loop_lookup = {} # dictionary to store the while loop jumps
-    ## TODO: Convert this into:  for char, index in enumerate(code):
-    for index in range(len(code)):
-        if code[index] == '[':
+    loop_stack = []  # queue for while loop jump 'pointers'
+    loop_lookup = {}  # dictionary to store all looping pointers.
+    for index, char in enumerate(code):
+        if char == '[':
             brace_count += 1
             loop_stack.append(index)
-        elif code[index] == ']':
+        elif char == ']':
             brace_count -= 1
-            # all looping pointers are stored in this dictionary.
-            # since python dictionaries are O(1), this is the easiest option
             start = loop_stack.pop()
             loop_lookup[index] = start - 1
             loop_lookup[start] = index
@@ -53,11 +54,9 @@ def run(code):
     if brace_count:
         raise CompileException('ERROR: Expected another ] somewhere.')
 
-    # Alright, lets start the actual program
-    memory = [0]*30000 # as defined by Urban Meuller, who made BrainFuck
-    mem_ptr = 0 # points to current block of memory
-    ## TODO: Convert this into:  for char, index in enumerate(code):
-    code_ptr = 0 # points to current executable byte
+    memory = [0] * MEMORY_CELLS
+    mem_ptr = 0  # points to current block of memory
+    code_ptr = 0  # points to current executable byte
     while code_ptr != len(code):
         # increment block
         if code[code_ptr] == '+':
@@ -97,12 +96,15 @@ def run(code):
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print('Usage: python BrainFuck.py <brain_fuck_source>')
+        print('Usage: %s <source_file.bf | code_string>' % sys.argv[0])
         sys.exit()
-    try:
-        file_handle = open(sys.argv[1])
-    except IOError:
-        print('Error reading file "%s"' % sys.argv[1])
-        sys.exit()
-    code = file_handle.read()
-    sys.exit(run(code))
+    if '.bf' in sys.argv[1]:
+        try:
+            file_handle = open(sys.argv[1])
+        except IOError:
+            print('Error reading file "%s"' % sys.argv[1])
+            sys.exit()
+        code = file_handle.read()
+    else:
+        code = sys.argv[1]
+    sys.exit(execute(code))
