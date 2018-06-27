@@ -2,6 +2,29 @@
 """BrainFuck interpreter, in python.
 
 From: https://github.com/Thenerdstation/BrainFuck
+
+You can use the Brainfuck program directly or import it as a library.
+A simple "hello world" .bf file is included as an example.
+
+For use as a library
+====================
+  #!/usr/bin/env python
+  import bf
+  # Accepts a single character keyboard input and prints it back.
+  bf.execute(',.')
+
+For use directly in shell (bash, for example):
+=========================
+  $ ./bf.py <source_file.bf | "code_string">
+
+A source file should have a ".bf" extension.
+  $ ./bf.py HelloWorld.bf
+  Hello world!
+
+A code string should be enclosed in quotation marks.
+  $ ./bf.py ",."
+  a
+  a$
 """
 from __future__ import print_function
 from __future__ import unicode_literals
@@ -16,7 +39,7 @@ MEMORY_CELLS = 30000  # as defined by Urban Meuller, who made BrainFuck
 
 # In case you done goof
 class CompileException(Exception):
-    """Comptile Exception
+    """Compile Exception
     """
     pass
 
@@ -32,10 +55,13 @@ def execute(code):
 
     Args:
         code: Code string to execute.
+
+    Returns:
+        Integer exit status; 0 for clean execution, non-zero otherwise.
+        Currently only returns 0, throwing exceptions on errors.
     """
     # strip all of the non executable characters
     code = ''.join(char for char in code if char in VALID_CODE_CHARS)
-
     # Initialize loops
     brace_count = 0
     loop_stack = []  # queue for while loop jump 'pointers'
@@ -50,10 +76,10 @@ def execute(code):
             loop_lookup[index] = start - 1
             loop_lookup[start] = index
         if brace_count < 0:
-            raise CompileException('ERROR: Miss matched braces.')
+            raise CompileException('Mismatched braces at %s.' % index)
     if brace_count:
-        raise CompileException('ERROR: Expected another ] somewhere.')
-
+        raise CompileException('Missing close brace.')
+    # run the code
     memory = [0] * MEMORY_CELLS
     mem_ptr = 0  # points to current block of memory
     code_ptr = 0  # points to current executable byte
@@ -71,7 +97,7 @@ def execute(code):
         # move pointer one block to the right
         elif code[code_ptr] == '>':
             mem_ptr += 1
-            if mem_ptr > 30000:
+            if mem_ptr > MEMORY_CELLS:
                 raise RuntimeException('Over memory bounds')
         # move pointer one block to the left
         elif code[code_ptr] == '<':
@@ -92,19 +118,26 @@ def execute(code):
         elif code[code_ptr] == ']':
             code_ptr = loop_lookup[code_ptr]
         code_ptr += 1
+    return 0
+
+
+def main():
+    """Direct execution function.
+    """
+    if '.bf' in sys.argv[1]:
+        try:
+            file_handle = open(sys.argv[1])
+            code = file_handle.read()
+        except IOError:
+            RuntimeException('Could not read file "%s"' % sys.argv[1])
+    else:
+        code = sys.argv[1]
+    execute(code)
 
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
-        print('Usage: %s <source_file.bf | code_string>' % sys.argv[0])
+        print('Usage:')
+        print('    %s <source_file.bf | "code_string">' % sys.argv[0])
         sys.exit()
-    if '.bf' in sys.argv[1]:
-        try:
-            file_handle = open(sys.argv[1])
-        except IOError:
-            print('Error reading file "%s"' % sys.argv[1])
-            sys.exit()
-        code = file_handle.read()
-    else:
-        code = sys.argv[1]
-    sys.exit(execute(code))
+    sys.exit(main())
