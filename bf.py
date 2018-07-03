@@ -50,6 +50,34 @@ class RuntimeException(Exception):
     pass
 
 
+def _get_getch():
+    """Get the implementation of getch() relevant for the system.
+
+    Allows user to input one character, without needing return or enter.
+
+    Returns:
+        getch() implementation, as a function.
+    """
+    try:
+        import termios
+    except ImportError:
+        # Non-POSIX. Return msvcrt's (Windows') getch.
+        import msvcrt
+        return msvcrt.getch
+    # POSIX system. Create and return a getch that manipulates the tty.
+    import tty
+    def _getch():
+        descriptor = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(descriptor)
+        try:
+            tty.setraw(descriptor)
+            char = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(descriptor, termios.TCSADRAIN, old_settings)
+        return char
+    return _getch
+
+
 def execute(code):
     """Interpret the code.
 
@@ -60,6 +88,7 @@ def execute(code):
         Integer exit status; 0 for clean execution, non-zero otherwise.
         Currently only returns 0, throwing exceptions on errors.
     """
+    getch = _get_getch()
     # strip all of the non executable characters
     code = ''.join(char for char in code if char in VALID_CODE_CHARS)
     # Initialize loops
@@ -109,7 +138,8 @@ def execute(code):
             sys.stdout.write(chr(memory[mem_ptr]))
         # read character
         elif code[code_ptr] == ',':
-            memory[mem_ptr] = ord(sys.stdin.read(1))
+            memory[mem_ptr] = ord(getch())
+            #memory[mem_ptr] = ord(sys.stdin.read(1))
         # loop start
         elif code[code_ptr] == '[':
             if memory[mem_ptr] == 0:
